@@ -31,6 +31,9 @@ volatile uint16_t instPosSnr=0;
 
 volatile int16_t instTemp;
 
+#define OUTPIN 25
+#define PWM_CHANNEL 1
+
 uint8_t pattern[4][16]={
   {2,0,0,0,2,0,0,0,2,0,0,0,2,0,1,0},
   {0,0,0,0,2,0,0,0,0,0,0,0,2,0,0,1},
@@ -86,12 +89,14 @@ void IRAM_ATTR onSound() {
   instPosHi+=instTunHi;
 
   o=oBdr+oHi+oSnr-384;
-  if (o<-127) o=-127;
-  if (o>127) o=127;
-  o+=128;
+  if (o<-1024) o=-1024;
+  if (o>1023) o=1023;
+  o+=1024;
 
-  osciBuffer[osciPos>>2]=o;
-  dacWrite(25, o);
+  osciBuffer[osciPos>>2]=o>>3;
+//  dacWrite(OUTPIN, o);        // Use 8bit DAC
+  ledcWrite(PWM_CHANNEL, o);  // use 11bit PWM
+
 
   osciPos++;
   if (osciPos>1023) osciPos=0;
@@ -148,10 +153,10 @@ void IRAM_ATTR onSequencer() {
 
 void setup() {
   Serial.begin(115200);
-  
+  /*
   display.init();
   display.flipScreenVertically(); 
-
+*/
   int a1,a2,a3,a4;
   for (int i=0;i<256;i++){
     sintab[i]=(uint8_t)(sin(((float)i)/128.0*3.14159)*127.0+127.0);
@@ -170,10 +175,13 @@ void setup() {
     else
       voltab[i]=128;
   }
+
+  ledcAttachPin(OUTPIN, PWM_CHANNEL);
+  ledcSetup(PWM_CHANNEL, 39062, 11); // max frequency, 11 bit resolution, i.e. 39062,5hz
   
-  timerSound=timerBegin(0, 80, true);
+  timerSound=timerBegin(0, 64, true);
   timerAttachInterrupt(timerSound, &onSound, true);
-  timerAlarmWrite(timerSound, 25, true);                    // sound loop runs at 40.000hz
+  timerAlarmWrite(timerSound, 32, true);                    // sound loop runs at 39.062,5hz
   timerStart(timerSound);
   timerAlarmEnable(timerSound);
   
@@ -185,8 +193,8 @@ void setup() {
 }
 
 void loop() {
-  display.clear();                                // just pump out the osci to the display
+/*  display.clear();                                // just pump out the osci to the display
   for (uint8_t i=0;i<128;i++)
     display.setPixel(i,osciBuffer[i<<1]>>2);
-  display.display();
+  display.display();*/
 }
