@@ -1,4 +1,5 @@
 #include "SSD1306Wire.h" // legacy include: `#include "SSD1306.h"
+#include "DigiEnc.h"
 #include "math.h"
 
 SSD1306Wire  display(0x3c, 22,21);
@@ -13,6 +14,9 @@ uint8_t metaltab[256];
 uint8_t noisetab[256];
 uint8_t voltab[256];
 
+DigiEnc *d1;
+uint8_t intSeqDivider=0;
+
 volatile uint8_t seq_step;
 volatile uint8_t seq_micron;
 volatile uint8_t seq_total;
@@ -20,10 +24,12 @@ volatile uint8_t seq_total;
 volatile int16_t instVolBdr=0;
 volatile int16_t instTunBdr=0;
 volatile uint16_t instPosBdr=0;
+uint16_t bdrTunOffset=100;
 
 volatile int16_t instVolHi=0;
 volatile int16_t instTunHi=0;
 volatile uint16_t instPosHi=0;
+uint16_t hiTunOffset=100;
 
 volatile int16_t instVolSnr=0;
 volatile int16_t instTunSnr=0;
@@ -103,6 +109,14 @@ void IRAM_ATTR onSound() {
 }
 
 void IRAM_ATTR onSequencer() {
+  // high-speed input processing
+  d1->process();
+  hiTunOffset=d1->val;
+
+  intSeqDivider=(intSeqDivider+1)&3;
+  if (intSeqDivider!=0)
+    return;
+  
   seq_step=seq_total>>4;
   seq_micron=seq_total&15;
 
@@ -116,7 +130,7 @@ void IRAM_ATTR onSequencer() {
         instVolBdr=0;
       else
         instVolBdr=60;
-      instTunBdr=100;
+      instTunBdr=bdrTunOffset;
       instPosBdr=0;
     }
 
@@ -144,7 +158,7 @@ void IRAM_ATTR onSequencer() {
         instVolHi=100;
       else
         instVolHi=115;
-      instTunHi=256;
+      instTunHi=hiTunOffset;
       instPosHi=0;
     }
 
@@ -176,6 +190,8 @@ void setup() {
       voltab[i]=128;
   }
 
+  d1=new DigiEnc(26,27,20,700,false);
+
   ledcAttachPin(OUTPIN, PWM_CHANNEL);
   ledcSetup(PWM_CHANNEL, 39062, 11); // max frequency, 11 bit resolution, i.e. 39062,5hz
   
@@ -187,7 +203,7 @@ void setup() {
   
   timerSequencer=timerBegin(1, 80, true);
   timerAttachInterrupt(timerSequencer, &onSequencer, true);
-  timerAlarmWrite(timerSequencer, 7000, true);              // test: run at about 60times/sec = 16 micron per step, ca. 120bpm
+  timerAlarmWrite(timerSequencer, 1750, true);              // test: run at about 60times/sec = 16 micron per step, ca. 120bpm. interrupt runs 240times/sec, but only every 4th time the sequencer is processed. the high frequency is required for processing digital encoders
   timerStart(timerSequencer);
   timerAlarmEnable(timerSequencer);
 }
