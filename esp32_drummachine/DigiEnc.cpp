@@ -16,11 +16,19 @@ void DigiEnc::process() {
   
   _lastA=_a;
   _lastB=_b;
+
   if (_a&&_b) {
+    int32_t _stepSize;
+    if (_valQuad!=0)
+      _deltaLastUpdate=millis()-_lastUpdate;
+    if (_deltaLastUpdate>=25)
+      _stepSize=1;
+    else
+      _stepSize=25-_deltaLastUpdate;
     if (_valQuad<0)
-      val--;
+      val-=_stepSize;
     if (_valQuad>0)
-      val++;
+      val+=_stepSize;
     if (val>_max){
       if (_wrapping)
         val=_min;
@@ -28,11 +36,12 @@ void DigiEnc::process() {
         val=_max;
     }
     if (val<_min){
-      if (_wrapping)
+      if (_wrapping)    // wrapping needs to be adapted if step is larger than 1
         val=_max;
       else
         val=_min;
     }
     _valQuad=0;
+    _lastUpdate=millis();
   }
 }

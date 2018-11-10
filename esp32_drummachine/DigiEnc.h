@@ -11,6 +11,8 @@ class DigiEnc {
     bool _lastA=true;
     bool _lastB=true;
     int8_t _valQuad=0;
+    unsigned long _lastUpdate=0;
+    unsigned long _deltaLastUpdate=0;
 
   public:
     int32_t val=0;
