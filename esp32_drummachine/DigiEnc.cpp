@@ -1,8 +1,8 @@
 #include "DigiEnc.h"
 
 void DigiEnc::process() {
-  bool _a=digitalRead(26);
-  bool _b=digitalRead(27);
+  bool _a=digitalRead(_pinA);
+  bool _b=digitalRead(_pinB);
   // clockwise
   if (_lastA&&_lastB&&_a&&!_b)  _valQuad++;
   if (!_lastA&&_lastB&&_a&&_b)  _valQuad++;

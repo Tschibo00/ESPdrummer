@@ -209,8 +209,8 @@ void setup() {
 }
 
 void loop() {
-/*  display.clear();                                // just pump out the osci to the display
-  for (uint8_t i=0;i<128;i++)
-    display.setPixel(i,osciBuffer[i<<1]>>2);
-  display.display();*/
+//  display.clear();                                // just pump out the osci to the display
+//  for (uint8_t i=0;i<128;i++)
+  //  display.setPixel(i,osciBuffer[i<<1]>>2);
+//  display.display();
 }

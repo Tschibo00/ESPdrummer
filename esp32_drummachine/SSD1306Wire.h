@@ -109,7 +109,8 @@ class SSD1306Wire : public OLEDDisplay {
 
             Wire.write(buffer[x + y * this->width()]);
             k++;
-            if (k == 16)  {
+//            if (k == 16)  {
+            if (k == 1)  {
               Wire.endTransmission();
               k = 0;
             }
