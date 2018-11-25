@@ -1,11 +1,10 @@
-//#include "SSD1306Wire.h" // legacy include: `#include "SSD1306.h"
 #include "DigiEnc.h"
 #include "math.h"
 #include "soc/ledc_reg.h"
 #include "soc/ledc_struct.h"
 #include "myoled.h"
 
-uint8_t screen[128*8];
+uint8_t myscreen[16*8];
 
 uint8_t osciBuffer[256];
 uint16_t osciPos;
@@ -247,42 +246,11 @@ void setup() {
 //  xTaskCreatePinnedToCore(taskDisplay, "taskDisplay", 10000, NULL,2, NULL, 0);
 }
 
+uint8_t blubber=0;
 void loop() {
-/*  uint8_t sample, sampleLo, sampleHi;
-  uint8_t dispII, page;
-  while(1){
-    for (page=0; page<8; page++){
-      Wire.beginTransmission(OLED_I2C_ADDRESS);
-      Wire.write(OLED_CONTROL_BYTE_DATA_STREAM);
-      for (dispII=0; dispII<128; dispII++) {
-        sample=(osciBuffer[127-dispII])>>2;
-        sampleLo=1<<(sample&7);
-        sampleHi=sample>>3;
-        Wire.write(page==sampleHi?sampleLo:0);
-      }
-      Wire.endTransmission();   
-    }
-  }
-  */
-
-  uint8_t x,y;
-  for (y=0;y<128;y++)
-    for (x=0;x<8;x++)
-      screen[x*128+y]=y;
-
-
-  
-  for (y=0;y<8;y++){
-    while(Wire.busy()){}
-    Wire.beginTransmission(OLED_I2C_ADDRESS);
-    Wire.write(OLED_CONTROL_BYTE_DATA_STREAM);
-    Wire.write(&(screen[y*128]),128);
-//    Wire.write(screen,128*8-1);
-//    Wire.write(0);
-    Wire.endTransmission(true);   
-  }
-
-
-
-  
+  for (uint8_t i=0;i<128;i++)
+    myscreen[i]=(i+blubber+(i/16))%16;
+  display(myscreen);
+  blubber++;
+  if (blubber==128) blubber=0;
 }

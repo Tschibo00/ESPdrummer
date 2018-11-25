@@ -1,4 +1,5 @@
 #include "myoled.h"
+#include <Arduino.h>        // only required for serial monitor output
 
 void oled_init(){
   Wire.begin(22,21);
@@ -21,5 +22,28 @@ void oled_init(){
   Wire.write(OLED_CMD_SET_COLUMN_RANGE);        // use all columns
   Wire.write(0);
   Wire.write(127);
-  Wire.endTransmission();
+  Wire.write(OLED_CMD_DISPLAY_NORMAL);          // non-inverted
+  Wire.write(OLED_CMD_SET_SEGMENT_REMAP);       // rotate screen by 180 degrees
+  Wire.write(OLED_CMD_SET_COM_SCAN_MODE);
+  Wire.endTransmission(true);
+}
+
+void display(uint8_t *screen){
+  uint8_t x,y;
+  for (y=0;y<8;y++){
+    Wire.beginTransmission(OLED_I2C_ADDRESS);
+    Wire.write(OLED_CONTROL_BYTE_CMD_STREAM);
+    Wire.write(OLED_CMD_SET_PAGE_RANGE);
+    Wire.write(y);
+    Wire.write(y);
+    Wire.write(OLED_CMD_SET_COLUMN_RANGE);        // used to reset the pointer to 0,y before pushing out the next row
+    Wire.write(0);
+    Wire.write(127);
+    Wire.endTransmission(true);
+    Wire.beginTransmission(OLED_I2C_ADDRESS);
+    Wire.write(OLED_CONTROL_BYTE_DATA_STREAM);
+    for (x=0;x<16;x++)
+      Wire.write(myfont+screen[y*16+x]*8,8);
+    Wire.endTransmission(true);
+  }
 }
