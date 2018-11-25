@@ -1,7 +1,8 @@
 git add *
 git commit -m "message"
 git push origin master
-username Tschibo00 oder ballhause@gmx.de
-password F..9000
-ggf. mit credentials abspeichern
-oder personal access token auf github erstellen
+username Tschibo00
+personal access token auf github erstellen
+zum speichern der credentials
+git config credential.helper store
+

@@ -21,10 +21,10 @@ void DigiEnc::process() {
     int32_t _stepSize;
     if (_valQuad!=0)
       _deltaLastUpdate=millis()-_lastUpdate;
-    if (_deltaLastUpdate>=25)
+    if (_deltaLastUpdate>=23)
       _stepSize=1;
     else
-      _stepSize=25-_deltaLastUpdate;
+      _stepSize=23-_deltaLastUpdate;
     if (_valQuad<0)
       val-=_stepSize;
     if (_valQuad>0)
