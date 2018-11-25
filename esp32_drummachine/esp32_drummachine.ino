@@ -1,10 +1,11 @@
-#include "SSD1306Wire.h" // legacy include: `#include "SSD1306.h"
+//#include "SSD1306Wire.h" // legacy include: `#include "SSD1306.h"
 #include "DigiEnc.h"
 #include "math.h"
 #include "soc/ledc_reg.h"
 #include "soc/ledc_struct.h"
+#include "myoled.h"
 
-SSD1306Wire  display(0x3c, 22,21);
+uint8_t screen[128*8];
 
 uint8_t osciBuffer[256];
 uint16_t osciPos;
@@ -50,12 +51,12 @@ uint8_t pattern[4][16]={
   {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
 };
 
-
+// my own version of the the ledcwrite library function, because it crashes in combination with I2C communication when using the mutex
 #define LEDC_CHAN(g,c) LEDC.channel_group[(g)].channel[(c)]
 void my_ledcWrite(uint8_t chan, uint32_t duty)
 {
     uint8_t group=(chan/8), channel=(chan%8);
-//    LEDC_MUTEX_LOCK();
+//    LEDC_MUTEX_LOCK();          // commented out to avoid crashing when I2C is written to
     LEDC_CHAN(group, channel).duty.duty = duty << 4;//25 bit (21.4)
     if(duty) {
         LEDC_CHAN(group, channel).conf0.sig_out_en = 1;//This is the output enable control bit for channel
@@ -74,7 +75,7 @@ void my_ledcWrite(uint8_t chan, uint32_t duty)
             LEDC_CHAN(group, channel).conf0.clk_en = 0;
         }
     }
-  //  LEDC_MUTEX_UNLOCK();
+  //  LEDC_MUTEX_UNLOCK();          // commented out to avoid crashing when I2C is written to
 }
 
 void IRAM_ATTR onSound() {
@@ -131,7 +132,6 @@ void IRAM_ATTR onSound() {
   osciBuffer[osciPos>>2]=o>>3;
 //  dacWrite(OUTPIN, o);        // Use 8bit DAC
   my_ledcWrite(PWM_CHANNEL, o);  // use 11bit PWM
-
 
   osciPos++;
   if (osciPos>1023) osciPos=0;
@@ -197,72 +197,13 @@ void IRAM_ATTR onSequencer() {
   seq_total++;
 }
 
-#define OLED_I2C_ADDRESS   0x3C
-#define OLED_CONTROL_BYTE_CMD_SINGLE  0x80
-#define OLED_CONTROL_BYTE_CMD_STREAM  0x00
-#define OLED_CONTROL_BYTE_DATA_STREAM 0x40
-#define OLED_CONTROL_BYTE_DATA_SINGLE   0xc0
-#define OLED_CMD_SET_CONTRAST     0x81  // follow with 0x7F
-#define OLED_CMD_DISPLAY_RAM      0xA4
-#define OLED_CMD_DISPLAY_ALLON      0xA5
-#define OLED_CMD_DISPLAY_NORMAL     0xA6
-#define OLED_CMD_DISPLAY_INVERTED     0xA7
-#define OLED_CMD_DISPLAY_OFF      0xAE
-#define OLED_CMD_DISPLAY_ON       0xAF
-#define OLED_CMD_SET_MEMORY_ADDR_MODE 0x20  // follow with 0x00 = HORZ mode = Behave like a KS108 graphic LCD
-#define OLED_CMD_SET_COLUMN_RANGE   0x21  // can be used only in HORZ/VERT mode - follow with 0x00 + 0x7F = COL127
-#define OLED_CMD_SET_PAGE_RANGE     0x22  // can be used only in HORZ/VERT mode - follow with 0x00 + 0x07 = PAGE7
-#define OLED_CMD_SET_COL_NIBBLE_LO            0x00
-#define OLED_CMD_SET_COL_NIBBLE_HI            0x10
-#define OLED_CMD_SET_PAGE_START                0xb0
-#define OLED_CMD_SET_DISPLAY_START_LINE 0x40
-#define OLED_CMD_SET_SEGMENT_REMAP    0xA1  
-#define OLED_CMD_SET_MUX_RATIO      0xA8  // follow with 0x3F = 64 MUX
-#define OLED_CMD_SET_COM_SCAN_MODE    0xC8  
-#define OLED_CMD_SET_DISPLAY_OFFSET   0xD3  // follow with 0x00
-#define OLED_CMD_SET_COM_PIN_MAP    0xDA  // follow with 0x12
-#define OLED_CMD_NOP          0xE3  // NOP
-#define OLED_CMD_SET_DISPLAY_CLK_DIV  0xD5  // follow with 0x80
-#define OLED_CMD_SET_PRECHARGE      0xD9  // follow with 0x22
-#define OLED_CMD_SET_VCOMH_DESELCT    0xDB  // follow with 0x30
-#define OLED_CMD_SET_CHARGE_PUMP  0x8D  // follow with 0x14void oled_init() {
-void oled_init(){
-      Wire.begin(22,21);
-      Wire.setClock(400000);
-//  Wire.begin();            // Init the I2C interface (pins A4 and A5 on the Arduino Uno board) in Master Mode.
-//  TWBR=0;           // Set the I2C to HS mode - 400KHz! TWBR = (CPU_CLK / I2C_CLK) -16 /2. Some report that even 0 is working. **** test it out ****
-  Wire.beginTransmission(OLED_I2C_ADDRESS);   // Begin the I2C comm with SSD1306's address (SLA+Write)
-  Wire.write(OLED_CONTROL_BYTE_CMD_STREAM);   // Tell the SSD1306 that a command stream is incoming
-  Wire.write(OLED_CMD_DISPLAY_OFF);     // Turn the Display OFF
-  Wire.write(OLED_CMD_SET_CONTRAST);      // set contrast
-  Wire.write(0xff);
-  Wire.write(OLED_CMD_SET_VCOMH_DESELCT);   // Set the V_COMH deselect volatage to max (0,83 x Vcc)
-  Wire.write(0x30);
-  Wire.write(OLED_CMD_SET_MEMORY_ADDR_MODE);    // vertical addressing mode
-  Wire.write(0x01);
-  Wire.write(OLED_CMD_SET_CHARGE_PUMP);     // Enable the charge pump
-  Wire.write(0x14);
-  Wire.write(OLED_CMD_DISPLAY_ON);      // Turn the Display ON
-  Wire.write(OLED_CMD_SET_PAGE_RANGE);                  // use the current page
-  Wire.write(0);
-  Wire.write(7);
-  Wire.write(OLED_CMD_SET_COLUMN_RANGE);                // use all columns
-  Wire.write(0);
-  Wire.write(127);
-  Wire.endTransmission();
-}
-
 void taskDisplay( void * parameter ){
 }
 
 void setup() {
   Serial.begin(115200);
-  
-  display.init();
-  display.flipScreenVertically(); 
 
-//  oled_init();
-
+  oled_init();
 
   int a1,a2,a3,a4;
   for (int i=0;i<256;i++){
@@ -307,39 +248,41 @@ void setup() {
 }
 
 void loop() {
-  while(1){
-    display.clear();                                // just pump out the osci to the display
-  //  for (uint8_t i=0;i<128;i++)
-    //  display.setPixel(i,osciBuffer[i<<1]>>2);
-/*    display.drawString(0,0,String(d1->val));
-    display.drawString(0,10,String(d2->val));
-    display.drawString(0,20,String(d3->val));
-    display.drawString(0,30,String(d4->val));
-    display.drawString(0,56,"Hello World");
-*/
-/*
-  uint8_t sample, sampleLo, sampleHi;
+/*  uint8_t sample, sampleLo, sampleHi;
   uint8_t dispII, page;
-    for (dispII=0; dispII<128; dispII++) {
+  while(1){
+    for (page=0; page<8; page++){
       Wire.beginTransmission(OLED_I2C_ADDRESS);
       Wire.write(OLED_CONTROL_BYTE_DATA_STREAM);
-      sample=(osciBuffer[127-dispII])>>2;
-  sample=38;
-      sampleLo=1<<(sample&7);
-      sampleHi=sample>>3;
-      for (page=0; page<8; page++)
+      for (dispII=0; dispII<128; dispII++) {
+        sample=(osciBuffer[127-dispII])>>2;
+        sampleLo=1<<(sample&7);
+        sampleHi=sample>>3;
         Wire.write(page==sampleHi?sampleLo:0);
+      }
       Wire.endTransmission();   
     }
-*/
-    
-    display.display();
+  }
+  */
+
+  uint8_t x,y;
+  for (y=0;y<128;y++)
+    for (x=0;x<8;x++)
+      screen[x*128+y]=y;
+
+
+  
+  for (y=0;y<8;y++){
+    while(Wire.busy()){}
+    Wire.beginTransmission(OLED_I2C_ADDRESS);
+    Wire.write(OLED_CONTROL_BYTE_DATA_STREAM);
+    Wire.write(&(screen[y*128]),128);
+//    Wire.write(screen,128*8-1);
+//    Wire.write(0);
+    Wire.endTransmission(true);   
   }
 
 
 
-//  while (audioISRrunning){}
   
-//  delay(100);
-
 }
