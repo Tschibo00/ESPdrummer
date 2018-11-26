@@ -4,7 +4,8 @@
 #include "soc/ledc_struct.h"
 #include "myoled.h"
 
-uint8_t myscreen[16*8];
+char myscreen[16*8];
+uint8_t myscreen_mask[16*8];
 
 uint8_t osciBuffer[256];
 uint16_t osciPos;
@@ -203,6 +204,8 @@ void setup() {
   Serial.begin(115200);
 
   oled_init();
+  // convert font bitmap from standard row-wise to SSD1306 col-wise format
+  convert_font_to_SSD1306();
 
   int a1,a2,a3,a4;
   for (int i=0;i<256;i++){
@@ -246,11 +249,44 @@ void setup() {
 //  xTaskCreatePinnedToCore(taskDisplay, "taskDisplay", 10000, NULL,2, NULL, 0);
 }
 
-uint8_t blubber=0;
 void loop() {
-  for (uint8_t i=0;i<128;i++)
-    myscreen[i]=(i+blubber+(i/16))%16;
-  display(myscreen);
-  blubber++;
-  if (blubber==128) blubber=0;
+/*  for (uint8_t i=0;i<128;i++){
+    myscreen[i]=i;
+    myscreen_mask[i]=0;
+  }
+*/
+
+  /*
+={
+//  "Hello World.....",
+//  "0123456789012345",
+  3,0,0,0,3,0,0,0,3,0,0,0,3,0,2,0,
+  0,0,2,0,0,0,2,0,0,0,2,0,0,0,2,0,
+  "MSPI Instrument ",
+  "Bdr Snr ClH OpH ",
+//  "127 127 127 127 "
+};
+*/
+
+  sprintf(myscreen,"Hello World.....");
+  sprintf(myscreen+16,"0123456789012345");
+  for (uint8_t i=0;i<32;i++) myscreen[i+32]=1;
+  myscreen[32]=3;
+  myscreen[36]=3;
+  myscreen[40]=3;
+  myscreen[44]=3;
+  myscreen[46]=2;
+  myscreen[50]=2;
+  myscreen[54]=2;
+  myscreen[58]=2;
+  myscreen[62]=2;
+  sprintf(myscreen+64,"Bdr Snr ClH OpH ");
+  sprintf(myscreen+80,"MSPI Instrument ");
+  sprintf(myscreen+96,"Bdr Snr ClH OpH ");
+  sprintf(myscreen+112,"________________");
+
+
+
+  
+  display(myscreen,myscreen_mask);
 }

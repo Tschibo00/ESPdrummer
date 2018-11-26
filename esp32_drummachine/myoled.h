@@ -2,7 +2,6 @@
 #define MYOLED
 
 #include "Wire.h"
-#include "myfont.h"
 
 #define OLED_I2C_ADDRESS   0x3C
 #define OLED_CONTROL_BYTE_CMD_SINGLE  0x80
@@ -35,6 +34,8 @@
 #define OLED_CMD_SET_CHARGE_PUMP  0x8D  // follow with 0x14
 
 void oled_init();
-void display(uint8_t *);      // 16*8 character screen using font defined in myfont.h
+void display(char *);      // 16*8 character screen using font defined in myfont.h
+void display(char *, uint8_t *);      // 16*8 character screen using font defined in myfont.h
+void convert_font_to_SSD1306();
 
 #endif

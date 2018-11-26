@@ -1,4 +1,5 @@
 #include "myoled.h"
+#include "myfont.h"
 #include <Arduino.h>        // only required for serial monitor output
 
 void oled_init(){
@@ -28,7 +29,11 @@ void oled_init(){
   Wire.endTransmission(true);
 }
 
-void display(uint8_t *screen){
+void display(char *screen){
+  display(screen, NULL);
+}
+
+void display(char *screen, uint8_t *mask){
   uint8_t x,y;
   for (y=0;y<8;y++){
     Wire.beginTransmission(OLED_I2C_ADDRESS);
@@ -43,7 +48,27 @@ void display(uint8_t *screen){
     Wire.beginTransmission(OLED_I2C_ADDRESS);
     Wire.write(OLED_CONTROL_BYTE_DATA_STREAM);
     for (x=0;x<16;x++)
-      Wire.write(myfont+screen[y*16+x]*8,8);
+      Wire.write(myfont+screen[y*16+x]*8+(mask==NULL?0:(mask[y*16+x]==0?0:1024)),8);
     Wire.endTransmission(true);
+  }
+}
+
+void convert_font_to_SSD1306(){
+  uint8_t tar[8];
+  uint8_t b[8]={1,2,4,8,16,32,64,128};
+  uint8_t c,i,t;
+  for (c=0;c<128;c++){
+    for (i=0;i<8;i++)
+      tar[i]=0;
+    for (i=0;i<8;i++){
+      for (t=0;t<8;t++){
+        if (myfont[c*8+t]&b[7-i])
+          tar[i]+=b[t];
+      }
+    }
+    for (i=0;i<8;i++){
+      myfont[c*8+i]=tar[i];
+      myfont[c*8+i+1024]=255^tar[i];
+    }
   }
 }
