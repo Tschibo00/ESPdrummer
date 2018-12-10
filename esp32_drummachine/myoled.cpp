@@ -2,6 +2,7 @@
 #include "myfont.h"
 #include <Arduino.h>        // only required for serial monitor output
 
+
 void oled_init(){
   Wire.begin(22,21);
   Wire.setClock(800000);
@@ -29,11 +30,13 @@ void oled_init(){
   Wire.endTransmission(true);
 }
 
+
 void display(char *screen){
-  display(screen, NULL);
+  display(screen, NULL,-1);
 }
 
-void display(char *screen, uint8_t *mask){
+
+void display(char *screen, uint8_t *mask, int trackPos){
   uint8_t x,y;
   for (y=0;y<8;y++){
     Wire.beginTransmission(OLED_I2C_ADDRESS);
@@ -47,11 +50,22 @@ void display(char *screen, uint8_t *mask){
     Wire.endTransmission(true);
     Wire.beginTransmission(OLED_I2C_ADDRESS);
     Wire.write(OLED_CONTROL_BYTE_DATA_STREAM);
-    for (x=0;x<16;x++)
-      Wire.write(myfont+screen[y*16+x]*8+(mask==NULL?0:(mask[y*16+x]==0?0:1024)),8);
+    if (y==4){                                        // in line 4 add the top line to seperate menu from pattern view
+      for (x=0;x<16;x++)
+        Wire.write(myfont+screen[y*16+x]*8+14*8+((x%4)==3?7*8:0)+(x==trackPos?24:0)+(mask==NULL?0:(mask[y*16+x]==32?0:1024)),8);
+    } else {
+      if (y>4){                                       // in the pattern part (lower 4 rows) add separator where required
+        for (x=0;x<16;x++)
+          Wire.write(myfont+screen[y*16+x]*8+((x%4)==3?7*8:0)+(x==trackPos?24:0)+(mask==NULL?0:(mask[y*16+x]==32?0:1024)),8);
+      }else{
+        for (x=0;x<16;x++)
+          Wire.write(myfont+screen[y*16+x]*8+(mask==NULL?0:(mask[y*16+x]==32?0:1024)),8);
+      }
+    }
     Wire.endTransmission(true);
   }
 }
+
 
 void convert_font_to_SSD1306(){
   uint8_t tar[8];
@@ -71,4 +85,42 @@ void convert_font_to_SSD1306(){
       myfont[c*8+i+1024]=255^tar[i];
     }
   }
+  for (i=0;i<7*8;i++){          // first make a plain copy of the pattern dots
+    myfont[i+7*8]=myfont[i];
+    myfont[i+14*8]=myfont[i];
+    myfont[i+21*8]=myfont[i];
+  }
+  for (i=0;i<7;i++){            // add separator line on the right side of char 7-13 and 21-27
+    myfont[i*8+7*8+7]=255;
+    myfont[i*8+21*8+7]=255;
+  }
+  for (i=0;i<14*8;i++)          // add top line on char 14-27
+    myfont[i+14*8]=myfont[i+14*8]|1;
+}
+
+
+// my own version of the the ledcwrite library function, because it crashes in combination with I2C communication when using the mutex
+#define LEDC_CHAN(g,c) LEDC.channel_group[(g)].channel[(c)]
+void my_ledcWrite(uint8_t chan, uint32_t duty){
+    uint8_t group=(chan/8), channel=(chan%8);
+//    LEDC_MUTEX_LOCK();          // commented out to avoid crashing when I2C is written to
+    LEDC_CHAN(group, channel).duty.duty = duty << 4;//25 bit (21.4)
+    if(duty) {
+        LEDC_CHAN(group, channel).conf0.sig_out_en = 1;//This is the output enable control bit for channel
+        LEDC_CHAN(group, channel).conf1.duty_start = 1;//When duty_num duty_cycle and duty_scale has been configured. these register won't take effect until set duty_start. this bit is automatically cleared by hardware.
+        if(group) {
+            LEDC_CHAN(group, channel).conf0.val |= BIT(4);
+        } else {
+            LEDC_CHAN(group, channel).conf0.clk_en = 1;
+        }
+    } else {
+        LEDC_CHAN(group, channel).conf0.sig_out_en = 0;//This is the output enable control bit for channel
+        LEDC_CHAN(group, channel).conf1.duty_start = 0;//When duty_num duty_cycle and duty_scale has been configured. these register won't take effect until set duty_start. this bit is automatically cleared by hardware.
+        if(group) {
+            LEDC_CHAN(group, channel).conf0.val &= ~BIT(4);
+        } else {
+            LEDC_CHAN(group, channel).conf0.clk_en = 0;
+        }
+    }
+  //  LEDC_MUTEX_UNLOCK();          // commented out to avoid crashing when I2C is written to
 }

@@ -1,6 +1,8 @@
 #ifndef MYOLED
 #define MYOLED
 
+#include "soc/ledc_reg.h"
+#include "soc/ledc_struct.h"
 #include "Wire.h"
 
 #define OLED_I2C_ADDRESS   0x3C
@@ -35,7 +37,8 @@
 
 void oled_init();
 void display(char *);      // 16*8 character screen using font defined in myfont.h
-void display(char *, uint8_t *);      // 16*8 character screen using font defined in myfont.h
+void display(char *, uint8_t *,int);      // 16*8 character screen using font defined in myfont.h
 void convert_font_to_SSD1306();
+void my_ledcWrite(uint8_t chan, uint32_t duty);
 
 #endif

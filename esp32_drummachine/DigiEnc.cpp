@@ -21,7 +21,7 @@ void DigiEnc::process() {
     int32_t _stepSize;
     if (_valQuad!=0)
       _deltaLastUpdate=millis()-_lastUpdate;
-    if (_deltaLastUpdate>=23)
+    if ((_deltaLastUpdate>=23)||(!_dynamic))
       _stepSize=1;
     else
       _stepSize=23-_deltaLastUpdate;

@@ -7,6 +7,7 @@ class DigiEnc {
     int32_t _min;
     int32_t _max;
     bool _wrapping=false;
+    bool _dynamic=true;
 
     bool _lastA=true;
     bool _lastB=true;
@@ -17,12 +18,13 @@ class DigiEnc {
   public:
     int32_t val=0;
   
-    DigiEnc(uint8_t _pinA=26, uint8_t _pinB=27, int32_t _min=-128, int32_t _max=127, bool _wrapping=false){
+    DigiEnc(uint8_t _pinA=26, uint8_t _pinB=27, int32_t _min=-128, int32_t _max=127, bool _wrapping=false, bool _dynamic=true){
       this->_pinA=_pinA;
       this->_pinB=_pinB;
       this->_min=_min;
       this->_max=_max;
       this->_wrapping=_wrapping;
+      this->_dynamic=_dynamic;
       pinMode(_pinA, INPUT_PULLUP);
       pinMode(_pinB, INPUT_PULLUP);
     }

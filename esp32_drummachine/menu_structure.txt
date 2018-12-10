@@ -1,0 +1,13 @@
+main menu
+	start
+	stop
+	bpm
+	show pattern	
+instrument 1-4
+	program steps
+		normal
+		accent
+		clear
+	select synth engine
+	modify parameters
+

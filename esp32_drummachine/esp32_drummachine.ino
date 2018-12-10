@@ -1,8 +1,7 @@
 #include "DigiEnc.h"
 #include "math.h"
-#include "soc/ledc_reg.h"
-#include "soc/ledc_struct.h"
 #include "myoled.h"
+#include "menu.h"
 
 char myscreen[16*8];
 uint8_t myscreen_mask[16*8];
@@ -18,7 +17,8 @@ uint8_t metaltab[256];
 uint8_t noisetab[256];
 uint8_t voltab[256];
 
-DigiEnc *d1, *d2, *d3, *d4;
+//DigiEnc *d1, *d2, *d3, *d4;
+DigiEnc *dMainMenu;
 uint8_t intSeqDivider=0;
 
 volatile uint8_t seq_step;
@@ -50,33 +50,6 @@ uint8_t pattern[4][16]={
   {1,0,2,1,1,0,2,0,1,1,2,0,1,0,2,1},
   {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
 };
-
-// my own version of the the ledcwrite library function, because it crashes in combination with I2C communication when using the mutex
-#define LEDC_CHAN(g,c) LEDC.channel_group[(g)].channel[(c)]
-void my_ledcWrite(uint8_t chan, uint32_t duty)
-{
-    uint8_t group=(chan/8), channel=(chan%8);
-//    LEDC_MUTEX_LOCK();          // commented out to avoid crashing when I2C is written to
-    LEDC_CHAN(group, channel).duty.duty = duty << 4;//25 bit (21.4)
-    if(duty) {
-        LEDC_CHAN(group, channel).conf0.sig_out_en = 1;//This is the output enable control bit for channel
-        LEDC_CHAN(group, channel).conf1.duty_start = 1;//When duty_num duty_cycle and duty_scale has been configured. these register won't take effect until set duty_start. this bit is automatically cleared by hardware.
-        if(group) {
-            LEDC_CHAN(group, channel).conf0.val |= BIT(4);
-        } else {
-            LEDC_CHAN(group, channel).conf0.clk_en = 1;
-        }
-    } else {
-        LEDC_CHAN(group, channel).conf0.sig_out_en = 0;//This is the output enable control bit for channel
-        LEDC_CHAN(group, channel).conf1.duty_start = 0;//When duty_num duty_cycle and duty_scale has been configured. these register won't take effect until set duty_start. this bit is automatically cleared by hardware.
-        if(group) {
-            LEDC_CHAN(group, channel).conf0.val &= ~BIT(4);
-        } else {
-            LEDC_CHAN(group, channel).conf0.clk_en = 0;
-        }
-    }
-  //  LEDC_MUTEX_UNLOCK();          // commented out to avoid crashing when I2C is written to
-}
 
 void IRAM_ATTR onSound() {
   instTemp=voltab[instVolBdr];
@@ -139,11 +112,14 @@ void IRAM_ATTR onSound() {
 
 void IRAM_ATTR onSequencer() {
   // high-speed input processing
-  d1->process();
+/*  d1->process();
   d2->process();
   d3->process();
   d4->process();
   hiTunOffset=d1->val;
+*/
+
+  dMainMenu->process();
 
   intSeqDivider=(intSeqDivider+1)&3;
   if (intSeqDivider!=0)
@@ -225,11 +201,13 @@ void setup() {
     else
       voltab[i]=128;
   }
-
+/*
   d1=new DigiEnc(33,32,20,700,false);
   d2=new DigiEnc(27,26,20,700,false);
   d3=new DigiEnc(18,19,20,700,false);
   d4=new DigiEnc(13,12,20,700,false);
+*/
+  dMainMenu=new DigiEnc(33,32,0,4,true,false);
 
   ledcAttachPin(OUTPIN, PWM_CHANNEL);
   ledcSetup(PWM_CHANNEL, 39062, 11); // max frequency, 11 bit resolution, i.e. 39062,5hz
@@ -267,7 +245,7 @@ void loop() {
 //  "127 127 127 127 "
 };
 */
-
+/*
   sprintf(myscreen,"Hello World.....");
   sprintf(myscreen+16,"0123456789012345");
   for (uint8_t i=0;i<32;i++) myscreen[i+32]=1;
@@ -285,8 +263,13 @@ void loop() {
   sprintf(myscreen+96,"Bdr Snr ClH OpH ");
   sprintf(myscreen+112,"________________");
 
+*/
 
+  for (uint8_t i=0;i<16*8;i++){
+    myscreen[i]=menu[dMainMenu->val][i];
+    myscreen_mask[i]=menu_mask[dMainMenu->val][i];
+  }
 
   
-  display(myscreen,myscreen_mask);
+  display(myscreen,myscreen_mask,(millis()/125)%16);
 }
