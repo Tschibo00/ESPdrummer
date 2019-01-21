@@ -41,6 +41,11 @@ volatile uint16_t instPosSnr=0;
 
 volatile int16_t instTemp;
 
+// cpu load measuring variables
+unsigned long cpuMeasureStart;
+char cpuMeasures[64];
+char cpuMeasurePoint=0;
+
 #define OUTPIN 25
 #define PWM_CHANNEL 1
 
@@ -52,6 +57,8 @@ uint8_t pattern[4][16]={
 };
 
 void IRAM_ATTR onSound() {
+  cpuMeasureStart=micros();
+
   instTemp=voltab[instVolBdr];
   oBdr=sintab[instPosBdr>>8];
   if (oBdr>=128) {
@@ -108,6 +115,9 @@ void IRAM_ATTR onSound() {
 
   osciPos++;
   if (osciPos>1023) osciPos=0;
+
+  cpuMeasures[cpuMeasurePoint]=micros()-cpuMeasureStart;    // store the measured microseconds round-robin
+  cpuMeasurePoint=(cpuMeasurePoint+1)%64;                   // since we run with almot 40khz, the max time for the sound loop is 25ys
 }
 
 void IRAM_ATTR onSequencer() {
@@ -228,48 +238,18 @@ void setup() {
 }
 
 void loop() {
-/*  for (uint8_t i=0;i<128;i++){
-    myscreen[i]=i;
-    myscreen_mask[i]=0;
-  }
-*/
-
-  /*
-={
-//  "Hello World.....",
-//  "0123456789012345",
-  3,0,0,0,3,0,0,0,3,0,0,0,3,0,2,0,
-  0,0,2,0,0,0,2,0,0,0,2,0,0,0,2,0,
-  "MSPI Instrument ",
-  "Bdr Snr ClH OpH ",
-//  "127 127 127 127 "
-};
-*/
-/*
-  sprintf(myscreen,"Hello World.....");
-  sprintf(myscreen+16,"0123456789012345");
-  for (uint8_t i=0;i<32;i++) myscreen[i+32]=1;
-  myscreen[32]=3;
-  myscreen[36]=3;
-  myscreen[40]=3;
-  myscreen[44]=3;
-  myscreen[46]=2;
-  myscreen[50]=2;
-  myscreen[54]=2;
-  myscreen[58]=2;
-  myscreen[62]=2;
-  sprintf(myscreen+64,"Bdr Snr ClH OpH ");
-  sprintf(myscreen+80,"MSPI Instrument ");
-  sprintf(myscreen+96,"Bdr Snr ClH OpH ");
-  sprintf(myscreen+112,"________________");
-
-*/
-
   for (uint8_t i=0;i<16*8;i++){
     myscreen[i]=menu[dMainMenu->val][i];
     myscreen_mask[i]=menu_mask[dMainMenu->val][i];
   }
 
-  
+  int totalCPUmeasure=0;
+  for (char i=0;i<64;i++)               // add up all measurements. usually would be divided by 16 (since measurements go from 0..25 and we have 64 measurements)
+    totalCPUmeasure+=cpuMeasures[i];    // factor is adjusted to 15, since a little overload comes from the sequencer and display driver, thus dividing by 15 results in a range of approx 0..100% load for the usable sound loop time
+  totalCPUmeasure=totalCPUmeasure/15;
+  menu[0][13]=(totalCPUmeasure/10)+48;  // now show the load on the main screen
+  if (menu[0][13]==48) menu[0][13]=32;  // remove leading 0
+  menu[0][14]=(totalCPUmeasure%10)+48;
+
   display(myscreen,myscreen_mask,(millis()/125)%16);
 }

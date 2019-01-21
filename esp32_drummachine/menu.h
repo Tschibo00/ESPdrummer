@@ -1,8 +1,8 @@
 #ifndef MENU
 #define MENU
 
-const char menu[5][129]={
-"1/5 Main        "
+char menu[5][129]={
+"1/5 Main       %"
 "BPM             "
 "130             "
 "Mt1 Mt2 Mt3 Mt4 "
