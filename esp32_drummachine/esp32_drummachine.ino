@@ -2,9 +2,12 @@
 #include "math.h"
 #include "myoled.h"
 #include "menu.h"
+#include "InstBdr.h"
 
 char myscreen[16*8];
 uint8_t myscreen_mask[16*8];
+
+Instrument* instruments[4];
 
 uint8_t osciBuffer[256];
 uint16_t osciPos;
@@ -129,7 +132,14 @@ void IRAM_ATTR onSequencer() {
   hiTunOffset=d1->val;
 */
 
-  dMainMenu->process();
+  if (!DigiEnc::getButton(3))
+    dMainMenu->process();
+
+  int instNo=dMainMenu->val-1;
+  if ((instNo>=0)&&(instNo<=3)&&(instruments[instNo]!=NULL)){
+    instruments[instNo]->processEncoders();
+  }
+  
 
   intSeqDivider=(intSeqDivider+1)&3;
   if (intSeqDivider!=0)
@@ -137,6 +147,13 @@ void IRAM_ATTR onSequencer() {
   
   seq_step=seq_total>>4;
   seq_micron=seq_total&15;
+
+  // if on instrument page in programming mode, modify the pattern accordingly
+  if ((instNo>=0)&&(instNo<=3)&&(instruments[instNo]!=NULL)){
+    if (DigiEnc::getButton(2)) pattern[instNo][seq_step]=0;
+    if (DigiEnc::getButton(0)) pattern[instNo][seq_step]=1;
+    if (DigiEnc::getButton(1)) pattern[instNo][seq_step]=2;
+  }
 
   instVolBdr+=5;
   instTunBdr-=6;
@@ -219,6 +236,11 @@ void setup() {
 */
   dMainMenu=new DigiEnc(33,32,0,4,true,false);
 
+  instruments[0]=new InstBdr();
+  instruments[1]=new InstBdr();
+  instruments[2]=new InstBdr();
+  instruments[3]=new InstBdr();
+
   ledcAttachPin(OUTPIN, PWM_CHANNEL);
   ledcSetup(PWM_CHANNEL, 39062, 11); // max frequency, 11 bit resolution, i.e. 39062,5hz
   
@@ -237,19 +259,59 @@ void setup() {
 //  xTaskCreatePinnedToCore(taskDisplay, "taskDisplay", 10000, NULL,2, NULL, 0);
 }
 
+void showNumber(char *target, uint8_t number){
+  uint8_t numberRest=number;
+  for (int8_t i=2;i>=0;i--){
+    if ((i<2)&&(numberRest==0))
+      target[i]=32;
+    else {
+      target[i]=48+numberRest%10;
+      numberRest=numberRest/10;
+    }
+  }
+}
+
 void loop() {
   for (uint8_t i=0;i<16*8;i++){
     myscreen[i]=menu[dMainMenu->val][i];
     myscreen_mask[i]=menu_mask[dMainMenu->val][i];
   }
 
+  // show instrument info on instrument pages
+  // show instrument name, parameter names and parameter values
+  int instNo=dMainMenu->val-1;
+  if ((instNo>=0)&&(instNo<=3)&&(instruments[instNo]!=NULL)){
+      strncpy(&(myscreen[12]), instruments[instNo]->getName(),3);
+      strncpy(&(myscreen[16]), instruments[instNo]->getParam(0)->getName(),3);
+      strncpy(&(myscreen[20]), instruments[instNo]->getParam(1)->getName(),3);
+      strncpy(&(myscreen[24]), instruments[instNo]->getParam(2)->getName(),3);
+      strncpy(&(myscreen[28]), instruments[instNo]->getParam(3)->getName(),3);
+      showNumber(&(myscreen[32]), instruments[instNo]->getParam(0)->getValue());
+      showNumber(&(myscreen[36]), instruments[instNo]->getParam(1)->getValue());
+      showNumber(&(myscreen[40]), instruments[instNo]->getParam(2)->getValue());
+      showNumber(&(myscreen[44]), instruments[instNo]->getParam(3)->getValue());
+  }
+
+  // show pattern
+  for (uint8_t i=0;i<4;i++)
+    for (uint8_t j=0;j<16;j++)
+      myscreen[i*16+64+j]=pattern[i][j]+1;
+
+  for (uint8_t i=0;i<4;i++){
+    if (DigiEnc::getButton(i)){
+      for (uint8_t j=0;j<4;j++)
+        myscreen_mask[48+i*4+j]=128;
+    }
+  }
+
   int totalCPUmeasure=0;
   for (char i=0;i<64;i++)               // add up all measurements. usually would be divided by 16 (since measurements go from 0..25 and we have 64 measurements)
     totalCPUmeasure+=cpuMeasures[i];    // factor is adjusted to 15, since a little overload comes from the sequencer and display driver, thus dividing by 15 results in a range of approx 0..100% load for the usable sound loop time
   totalCPUmeasure=totalCPUmeasure/15;
-  menu[0][13]=(totalCPUmeasure/10)+48;  // now show the load on the main screen
-  if (menu[0][13]==48) menu[0][13]=32;  // remove leading 0
-  menu[0][14]=(totalCPUmeasure%10)+48;
+  showNumber(&(menu[0][12]), totalCPUmeasure);
+//  menu[0][13]=(totalCPUmeasure/10)+48;  // now show the load on the main screen
+//  if (menu[0][13]==48) menu[0][13]=32;  // remove leading 0
+//  menu[0][14]=(totalCPUmeasure%10)+48;
 
-  display(myscreen,myscreen_mask,(millis()/125)%16);
+  display(myscreen,myscreen_mask,seq_step);
 }
